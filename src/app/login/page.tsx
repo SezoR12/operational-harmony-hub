@@ -1,29 +1,23 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
+import { signIn, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session, status } = useSession();
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(true);
 
   useEffect(() => {
-    fetch("/api/session")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.role) {
-          const redirect = searchParams.get("redirect") || "/dashboard";
-          router.replace(redirect);
-        } else {
-          setCheckingSession(false);
-        }
-      })
-      .catch(() => setCheckingSession(false));
-  }, [router, searchParams]);
+    if (status === "authenticated") {
+      const redirect = searchParams.get("redirect") || "/dashboard";
+      router.replace(redirect);
+    }
+  }, [status, router, searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,16 +25,14 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password, role: "admin" }),
+      const result = await signIn("credentials", {
+        password,
+        role: "admin",
+        redirect: false,
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || "خطأ في تسجيل الدخول");
+      if (result?.error) {
+        setError("كلمة المرور غير صحيحة");
         setLoading(false);
         return;
       }
@@ -53,7 +45,7 @@ export default function LoginPage() {
     }
   }
 
-  if (checkingSession) {
+  if (status === "loading") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--background)]">
         <div className="text-center">
@@ -64,11 +56,12 @@ export default function LoginPage() {
     );
   }
 
+  if (status === "authenticated") {
+    return null;
+  }
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center bg-[var(--background)] p-4"
-      dir="rtl"
-    >
+    <div className="flex min-h-screen items-center justify-center bg-[var(--background)] p-4" dir="rtl">
       <div className="w-full max-w-sm">
         <div className="card">
           <div className="text-center mb-6">
@@ -112,5 +105,17 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-[var(--background)]">
+        <div className="animate-spin h-8 w-8 border-4 border-[var(--primary)] border-t-transparent rounded-full mx-auto mb-4" />
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

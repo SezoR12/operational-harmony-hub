@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import AuthSessionProvider from "@/components/session-provider";
 
 export const metadata: Metadata = {
   title: "AI-EOS — التنسيق التشغيلي بين المصانع",
@@ -21,7 +22,9 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <AuthSessionProvider>{children}</AuthSessionProvider>
+      </body>
     </html>
   );
 }

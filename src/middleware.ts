@@ -1,37 +1,40 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { auth } from "@/lib/auth"
+import { NextResponse } from "next/server"
 
-const PUBLIC_ROUTES = ["/login", "/report", "/api/login", "/api/logout", "/api/session"];
+const PUBLIC_ROUTES = ["/login", "/report"]
 
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+export default auth((req) => {
+  const { pathname } = req.nextUrl
+  const isLoggedIn = !!req.auth
 
   // Allow public routes
   if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
-    return NextResponse.next();
+    return NextResponse.next()
   }
 
-  // Allow static files and API internals
+  // Allow API auth routes (NextAuth internals)
+  if (pathname.startsWith("/api/auth")) {
+    return NextResponse.next()
+  }
+
+  // Allow static files
   if (
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon") ||
-    pathname === "/"
+    pathname === "/favicon.ico"
   ) {
-    return NextResponse.next();
+    return NextResponse.next()
   }
 
-  const sessionCookie = request.cookies.get("ai-eos-session");
-
-  // No session - redirect to login
-  if (!sessionCookie) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(loginUrl);
+  // Not logged in - redirect to login
+  if (!isLoggedIn) {
+    const loginUrl = new URL("/login", req.url)
+    loginUrl.searchParams.set("redirect", pathname)
+    return NextResponse.redirect(loginUrl)
   }
 
-  return NextResponse.next();
-}
+  return NextResponse.next()
+})
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
-};
+}
