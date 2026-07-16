@@ -16,11 +16,12 @@ const STATUS_LABELS: Record<string, string> = {
 export default async function GmReportPage({
   params,
 }: {
-  params: { token: string };
+  params: Promise<{ token: string }>;
 }) {
   const config = await prisma.appConfig.findFirst();
+  const { token } = await params;
 
-  if (!config || config.gmReportToken !== params.token) {
+  if (!config || config.gmReportToken !== token) {
     notFound();
   }
 
