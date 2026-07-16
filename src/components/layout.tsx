@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { signOut, useSession } from "next-auth/react";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "الرئيسية" },
@@ -14,24 +13,9 @@ const NAV_ITEMS = [
   { href: "/risks", label: "المخاطر" },
 ];
 
-// Restricted nav for data-entry role
-const DATA_ENTRY_NAV = [
-  { href: "/daily-input", label: "الإدخال اليومي" },
-];
-
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const { data: session } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
-
-  const role = session?.user?.role || "admin";
-  const navItems = role === "data-entry" ? DATA_ENTRY_NAV : NAV_ITEMS;
-
-  async function handleLogout() {
-    await signOut({ redirect: false });
-    router.replace("/login");
-  }
 
   return (
     <div className="min-h-screen bg-[var(--background)]" dir="rtl">
@@ -48,7 +32,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </Link>
               {/* Desktop nav */}
               <nav className="hidden md:flex items-center gap-1">
-                {navItems.map((item) => (
+                {NAV_ITEMS.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}
@@ -64,20 +48,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </nav>
             </div>
             <div className="flex items-center gap-2">
-              {role !== "data-entry" && (
-                <Link
-                  href="/admin/report-editor"
-                  className="hidden sm:inline-flex btn btn-sm btn-secondary"
-                >
-                  تقرير GM
-                </Link>
-              )}
-              <button
-                onClick={handleLogout}
-                className="btn btn-sm btn-outline"
+              <Link
+                href="/admin/report-editor"
+                className="hidden sm:inline-flex btn btn-sm btn-secondary"
               >
-                خروج
-              </button>
+                تقرير GM
+              </Link>
               {/* Mobile menu button */}
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
@@ -92,7 +68,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {menuOpen && (
           <div className="md:hidden border-t border-[var(--border)] bg-[var(--card)]">
             <nav className="px-4 py-2 space-y-1">
-              {navItems.map((item) => (
+              {NAV_ITEMS.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
@@ -106,15 +82,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   {item.label}
                 </Link>
               ))}
-              {role !== "data-entry" && (
-                <Link
-                  href="/admin/report-editor"
-                  onClick={() => setMenuOpen(false)}
-                  className="block px-3 py-2 rounded-md text-sm text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
-                >
-                  تقرير GM
-                </Link>
-              )}
+              <Link
+                href="/admin/report-editor"
+                onClick={() => setMenuOpen(false)}
+                className="block px-3 py-2 rounded-md text-sm text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
+              >
+                تقرير GM
+              </Link>
             </nav>
           </div>
         )}
