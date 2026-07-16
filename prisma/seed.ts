@@ -494,7 +494,127 @@ async function main() {
   });
 
   console.log("✅ Line-product assignments done");
+
+  // --- Set currentProductId for lines ---
+  await prisma.line.update({
+    where: { id: "line-ic1-خط-آيس-كريم-كأس" },
+    data: { currentProductId: ic1Product1.id },
+  });
+  await prisma.line.update({
+    where: { id: "line-ic1-خط-آيس-كريم-كونو" },
+    data: { currentProductId: ic1Product2.id },
+  });
+  await prisma.line.update({
+    where: { id: "line-ic2-خط-آيس-كريم-فاميلي" },
+    data: { currentProductId: ic2Product1.id },
+  });
+  await prisma.line.update({
+    where: { id: "line-ic2-خط-ساندويتش-آيس-كريم" },
+    data: { currentProductId: ic2Product2.id },
+  });
+  await prisma.line.update({
+    where: { id: "line-nap-خط-مناديل-جيب" },
+    data: { currentProductId: napProduct1.id },
+  });
+  await prisma.line.update({
+    where: { id: "line-nap-خط-مناديل-مطبخ" },
+    data: { currentProductId: napProduct2.id },
+  });
+  console.log("✅ currentProductId set for all lines");
+
+  // --- Sample Risks ---
+  const sampleRisks = [
+    { category: "سلسلة توريد", description: "نقص حليب بودرة بسبب تأخر الشحنات من المورد", probability: "محتمل", impact: "كبير", mitigationPlan: "التنسيق مع مورد بديل والحفاظ على مخزون أمان 14 يوم" },
+    { category: "تشغيلي", description: "توقف خط الإنتاج الرئيسي في مصنع الكرتون", probability: "ممكن", impact: "كارثي", mitigationPlan: "جدولة صيانة دورية وتوفير قطع غيار أساسية" },
+    { category: "مالي", description: "ارتفاع تكلفة المواد الخام بنسبة 20%", probability: "محتمل", impact: "متوسط", mitigationPlan: "التحوط بشراء كميات أكبر بعقود ثابتة" },
+    { category: "استراتيجي", description: "دخول منافس جديد بسوق المناديل", probability: "ممكن", impact: "كبير", mitigationPlan: "تطوير منتجات متميزة وبرنامج ولاء عملاء" },
+  ];
+
+  for (const risk of sampleRisks) {
+    await prisma.risk.create({
+      data: {
+        ...risk,
+        classification: calculateRiskClass(risk.probability, risk.impact),
+        status: "active",
+      },
+    });
+  }
+  console.log("✅ Sample risks created");
+
+  // --- Sample Forecasts ---
+  const sampleForecasts = [
+    { productId: ic1Product1.id, period: "2026-Q3", horizon: "quarterly", optimistic: 150000, likely: 120000, pessimistic: 90000 },
+    { productId: ic1Product2.id, period: "2026-Q3", horizon: "quarterly", optimistic: 80000, likely: 65000, pessimistic: 50000 },
+    { productId: ic2Product1.id, period: "2026-Q3", horizon: "quarterly", optimistic: 60000, likely: 45000, pessimistic: 30000 },
+    { productId: ic2Product2.id, period: "2026-Q3", horizon: "quarterly", optimistic: 100000, likely: 80000, pessimistic: 60000 },
+    { productId: napProduct1.id, period: "2026-Q3", horizon: "quarterly", optimistic: 5000, likely: 4000, pessimistic: 3000 },
+    { productId: napProduct2.id, period: "2026-Q3", horizon: "quarterly", optimistic: 4000, likely: 3000, pessimistic: 2000 },
+    { productId: cbProduct1.id, period: "2026-Q3", horizon: "quarterly", optimistic: 30000, likely: 25000, pessimistic: 20000 },
+    { productId: cbProduct2.id, period: "2026-Q3", horizon: "quarterly", optimistic: 15000, likely: 12000, pessimistic: 9000 },
+  ];
+
+  for (const f of sampleForecasts) {
+    const existingForecast = await prisma.forecast.findFirst({
+      where: { productId: f.productId, period: f.period },
+    });
+    if (!existingForecast) {
+      await prisma.forecast.create({ data: f });
+    }
+  }
+  console.log("✅ Sample forecasts created");
+
+  // --- Sample Orders (cardboard) ---
+  const today = new Date();
+  for (let i = 0; i < 5; i++) {
+    const orderDate = new Date(today);
+    orderDate.setDate(orderDate.getDate() - i * 5);
+    const reqDate = new Date(orderDate);
+    reqDate.setDate(reqDate.getDate() + 14);
+    const promDate = new Date(reqDate);
+    promDate.setDate(promDate.getDate() - Math.floor(Math.random() * 3));
+
+    await prisma.order.create({
+      data: {
+        productId: i % 2 === 0 ? cbProduct1.id : cbProduct2.id,
+        customerName: ["شركة تعبئة", "مصنع ألبان", "شركة شحن", "مخازن كرم", "شركة مواد غذائية"][i],
+        quantity: [1000, 500, 2000, 800, 1500][i],
+        requestedDate: reqDate,
+        promisedDate: promDate,
+        ctpStatus: ["green", "green", "yellow", "green", "red"][i],
+        status: i < 3 ? "confirmed" : i < 4 ? "delivered" : "draft",
+      },
+    });
+  }
+  console.log("✅ Sample orders created");
+
+  // --- Sample Decisions ---
+  const sampleDecisions = [
+    { priority: "P0", title: "🔥 طلب شركة تعبئة بتصنيف CTP أصفر", description: "يتطلب موافقة على أوفرتايم لتلبية الطلب في الموعد المطلوب.", factoryId: cardboard.id },
+    { priority: "P1", title: "⚠️ مخزون حليب بودرة أقل من الحد الآمن", description: "المخزون الحالي 2000 كغم، الحد الآمن 3500 كغم. المهلة 5 أيام.", factoryId: iceCream1.id },
+    { priority: "P2", title: "📋 مراجعة أسعار المناديل للموسم القادم", description: "ارتفاع تكلفة لب الورق بنسبة 8% — يلزم تعديل الأسعار.", factoryId: napkins.id },
+  ];
+
+  for (const d of sampleDecisions) {
+    await prisma.decisionItem.create({
+      data: {
+        ...d,
+        status: "open",
+      },
+    });
+  }
+  console.log("✅ Sample decisions created");
+
   console.log("🎉 Seed complete!");
+
+function calculateRiskClass(probability: string, impact: string): string {
+  const matrix: Record<string, Record<string, string>> = {
+    "نادراً": { "طفيف": "منخفض", "متوسط": "منخفض", "كبير": "متوسط", "كارثي": "مرتفع" },
+    "ممكن": { "طفيف": "منخفض", "متوسط": "متوسط", "كبير": "مرتفع", "كارثي": "حرج" },
+    "محتمل": { "طفيف": "متوسط", "متوسط": "مرتفع", "كبير": "حرج", "كارثي": "حرج" },
+    "شبه مؤكد": { "طفيف": "متوسط", "متوسط": "مرتفع", "كبير": "حرج", "كارثي": "حرج" },
+  };
+  return matrix[probability]?.[impact] || "متوسط";
+}
 }
 
 main()

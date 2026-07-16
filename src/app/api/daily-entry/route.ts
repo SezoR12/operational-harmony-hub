@@ -93,12 +93,11 @@ export async function POST(request: Request) {
 
 async function generateAutoDecisions(factoryId: string, department: string, dataJson: any) {
   try {
-    // Check for production deviation > 10%
+    // 1. Production deviation > 10%
     if (department === "production" && dataJson.produced && dataJson.efficiency) {
       const efficiency = parseFloat(dataJson.efficiency);
       if (efficiency < 90) {
-        // Check if a decision already exists for this
-        const existingDecision = await prisma.decisionItem.findFirst({
+        const existing = await prisma.decisionItem.findFirst({
           where: {
             factoryId,
             title: { contains: "انحراف إنتاج" },
@@ -106,17 +105,63 @@ async function generateAutoDecisions(factoryId: string, department: string, data
             createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
           },
         });
-
-        if (!existingDecision) {
+        if (!existing) {
           await prisma.decisionItem.create({
             data: {
               priority: "P1",
-              title: `انحراف إنتاج في ${factoryId}`,
+              title: `⚠️ انحراف إنتاج في ${factoryId}`,
               description: `نسبة الكفاءة ${efficiency}% (أقل من 90%).`,
               factoryId,
               status: "open",
             },
           });
+        }
+      }
+    }
+
+    // 2. Raw material stock below safety stock
+    if (department === "inventory") {
+      const factory = await prisma.factory.findUnique({
+        where: { id: factoryId },
+        include: {
+          products: {
+            include: {
+              bomItems: { include: { rawMaterial: true } },
+            },
+          },
+        },
+      });
+      if (factory) {
+        const checkedMaterials = new Set<string>();
+        for (const product of factory.products) {
+          for (const bom of product.bomItems) {
+            const rm = bom.rawMaterial;
+            if (checkedMaterials.has(rm.id)) continue;
+            checkedMaterials.add(rm.id);
+
+            const dailyUsage = bom.quantity / bom.batchSize * 100; // estimate
+            const minStock = rm.safetyStockDays * dailyUsage;
+
+            if (rm.currentStock < minStock) {
+              const existing = await prisma.decisionItem.findFirst({
+                where: {
+                  title: { contains: rm.name },
+                  status: "open",
+                },
+              });
+              if (!existing) {
+                await prisma.decisionItem.create({
+                  data: {
+                    priority: "P0",
+                    title: `🚨 مادة خام منخفضة: ${rm.name}`,
+                    description: `المخزون (${rm.currentStock} ${rm.unit}) أقل من مخزون الأمان (${Math.round(minStock)}). المهلة: ${rm.leadTimeDays} يوم.`,
+                    factoryId,
+                    status: "open",
+                  },
+                });
+              }
+            }
+          }
         }
       }
     }

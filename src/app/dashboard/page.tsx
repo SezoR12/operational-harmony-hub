@@ -66,7 +66,7 @@ export default async function DashboardPage() {
                 <p className="text-xs text-[var(--muted-foreground)] mb-3">
                   {f.marketType === "B2C" ? "استهلاكي" : "بين الشركات"}
                 </p>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span
                     className={`badge ${
                       f.status === "green"
@@ -78,16 +78,9 @@ export default async function DashboardPage() {
                   >
                     {STATUS_LABELS[f.status]}
                   </span>
-                  {f.salesAchievement !== undefined && (
-                    <span className="text-xs text-[var(--muted-foreground)]">
-                      تحقيق المبيعات: {f.salesAchievement}%
-                    </span>
-                  )}
-                  {f.deliveryCompliance !== undefined && (
-                    <span className="text-xs text-[var(--muted-foreground)]">
-                      التزام المواعيد: {f.deliveryCompliance}%
-                    </span>
-                  )}
+                  <span className="text-xs text-[var(--muted-foreground)]">
+                    {f.reason}
+                  </span>
                 </div>
               </div>
             ))}
@@ -123,13 +116,14 @@ export default async function DashboardPage() {
                     <span className={`badge ${PRIORITY_COLORS[d.priority] || "badge-gray"}`}>
                       {d.priority}
                     </span>
-                    <div>
+                      <div>
                       <p className="text-sm font-medium text-[var(--foreground)]">
                         {d.title}
                       </p>
                       <p className="text-xs text-[var(--muted-foreground)] line-clamp-1">
                         {d.description}
                       </p>
+                      {d.factoryName && <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5">{d.factoryName}</p>}
                     </div>
                   </li>
                 ))}

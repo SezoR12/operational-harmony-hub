@@ -70,6 +70,10 @@ export default function DailyInputPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [showMarketing, setShowMarketing] = useState(false);
+
+  const today = new Date();
+  const isSunday = today.getDay() === 0;
 
   useEffect(() => {
     fetchFactories();
@@ -174,7 +178,7 @@ export default function DailyInputPage() {
     }
   }
 
-  const today = new Date().toISOString().split("T")[0];
+  const todayStr = new Date().toISOString().split("T")[0];
 
   if (loading) {
     return (
@@ -216,7 +220,7 @@ export default function DailyInputPage() {
               type="date"
               className="input"
               value={date}
-              max={today}
+              max={todayStr}
               onChange={(e) => setDate(e.target.value)}
             />
           </div>
@@ -233,13 +237,25 @@ export default function DailyInputPage() {
           {DEPARTMENTS.map((dept) => (
             <button
               key={dept.id}
-              className={`tab ${activeTab === dept.id ? "active" : ""}`}
-              onClick={() => setActiveTab(dept.id)}
+              className={`tab ${activeTab === dept.id ? "active" : ""} ${dept.id === "marketing" && !isSunday && !showMarketing ? "opacity-40" : ""}`}
+              onClick={() => {
+                if (dept.id === "marketing" && !isSunday && !showMarketing) { setShowMarketing(true); return; }
+                setActiveTab(dept.id);
+              }}
             >
               {dept.label}
+              {dept.id === "marketing" && !isSunday && !showMarketing && " (أحد فقط)"}
             </button>
           ))}
         </div>
+
+        {/* Marketing notice */}
+        {activeTab === "marketing" && !isSunday && !showMarketing && (
+          <div className="card text-center">
+            <p className="text-sm text-[var(--muted-foreground)] mb-3">تبويب التسويق يظهر تلقائياً يوم الأحد.</p>
+            <button onClick={() => { setShowMarketing(true); setActiveTab("marketing"); }} className="btn btn-secondary">إظهار على أي حال</button>
+          </div>
+        )}
 
         {/* Form */}
         <div className="card">
