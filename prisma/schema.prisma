@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Factory {
+  id            String   @id @default(cuid())
+  name          String
+  marketType    String   // "B2C" | "B2B"
+  planningStage String   @default("market-led") // "market-led" | "capacity-led"
+  lines         Line[]
+  products      Product[]
+  dailyEntries  DailyEntry[]
+  decisions     DecisionItem[]
+}
+
+model Line {
+  id                String   @id @default(cuid())
+  factoryId         String
+  factory           Factory  @relation(fields: [factoryId], references: [id])
+  name              String
+  type              String
+  capacityPerHour   Float
+  hoursPerDay       Float
+  suitableProductIds String  // JSON array of product ids as string
+  currentProductId  String?  // المنتج الحالي على الخط (يدوي)
+}
+
+model Product {
+  id                 String     @id @default(cuid())
+  factoryId          String
+  factory            Factory    @relation(fields: [factoryId], references: [id])
+  name               String
+  code               String     @unique
+  unit               String
+  priceCustomer      Float?
+  priceWholesale     Float?
+  priceSupermarket   Float?
+  moq                Int
+  setupTimeMinutes   Int
+  contributionMargin Float?     // percentage
+  seasonality        String?
+  bomItems           BomItem[]
+  orders             Order[]
+  forecasts          Forecast[]
+}
+
+model RawMaterial {
+  id               String    @id @default(cuid())
+  name             String
+  unit             String
+  unitCost         Float
+  currentStock     Float     @default(0)   // بوحدة المادة
+  safetyStockDays  Float
+  leadTimeDays     Float
+  supplier         String?
+  backupSupplier   String?
+  riskNote         String?
+  bomItems         BomItem[]
+}
+
+model BomItem {
+  id            String       @id @default(cuid())
+  productId     String
+  product       Product      @relation(fields: [productId], references: [id])
+  rawMaterialId String
+  rawMaterial   RawMaterial  @relation(fields: [rawMaterialId], references: [id])
+  quantity      Float        // الكمية لكل دفعة مرجعية
+  batchSize     Float        @default(1000)
+}
+
+model DailyEntry {
+  id          String   @id @default(cuid())
+  factoryId   String
+  factory     Factory  @relation(fields: [factoryId], references: [id])
+  date        DateTime
+  department  String   // "production" | "inventory" | "sales" | "purchasing" | "maintenance" | "logistics" | "marketing"
+  dataJson    String   // JSON حر
+  notes       String?
+  createdAt   DateTime @default(now())
+}
+
+model Order {
+  id              String    @id @default(cuid())
+  productId       String
+  product         Product   @relation(fields: [productId], references: [id])
+  customerName    String
+  quantity        Float
+  requestedDate   DateTime
+  ctpStatus       String?   // "green" | "yellow" | "red" | null
+  promisedDate    DateTime?
+  status          String    @default("draft") // "draft" | "confirmed" | "delivered" | "cancelled"
+  ctpDetailsJson  String?   // تفاصيل حساب CTP
+  createdAt       DateTime  @default(now())
+}
+
+model Forecast {
+  id          String   @id @default(cuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  period      String   // "2026-Q3" أو "2026-07"
+  horizon     String   // "annual" | "semi-annual" | "quarterly" | "monthly" | "weekly"
+  optimistic  Float
+  likely      Float
+  pessimistic Float
+}
+
+model DecisionItem {
+  id             String    @id @default(cuid())
+  priority       String    // "P0" | "P1" | "P2" | "P3"
+  title          String
+  description    String
+  factoryId      String?
+  factory        Factory?  @relation(fields: [factoryId], references: [id])
+  status         String    @default("open") // "open" | "resolved" | "dismissed"
+  resolutionNote String?
+  createdAt      DateTime  @default(now())
+  resolvedAt     DateTime?
+}
+
+model Risk {
+  id             String   @id @default(cuid())
+  category       String   // تشغيلي/مالي/سلسلة توريد/استراتيجي
+  description    String
+  probability    String   // نادراً/ممكن/محتمل/شبه مؤكد
+  impact         String   // طفيف/متوسط/كبير/كارثي
+  classification String   // منخفض/متوسط/مرتفع/حرج
+  mitigationPlan String?
+  status         String   @default("active") // "active" | "resolved"
+}
+
+model GmReportSnapshot {
+  id          String   @id @default(cuid())
+  generatedAt DateTime @default(now())
+  dataJson    String   // نسخة مجمّدة من المؤشرات
+}
+
+model AppConfig {
+  id    String @id @default("singleton")
+  gmReportToken String
+  adminPasswordHash String
+  dataEntryPasswordHash String?
+}
